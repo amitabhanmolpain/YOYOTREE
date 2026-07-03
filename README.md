@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scam URL/Message Checker
 
-## Getting Started
+A phishing/scam detector for WhatsApp and SMS messages common in India. Paste a link or a message and get a Safe / Suspicious / Dangerous verdict with a one-line reason.
 
-First, run the development server:
+- `frontend/` — Next.js UI (built by a collaborator)
+- `backend/` — Python + FastAPI detection engine (this is the part described below)
+
+## What the backend checks
+
+1. **URL Safety Check** — Google Safe Browsing API (malware/phishing feeds)
+2. **Domain Age Check** — WHOIS lookup, flags domains registered under 30 days ago
+3. **Brand Impersonation Check** — Levenshtein distance against ~20 commonly-impersonated Indian brands (SBI, Paytm, PhonePe, Amazon, LIC, etc.)
+4. **Scam Message Text Check** — keyword/regex scoring for phishing language (KYC threats, OTP requests, lottery scams, urgency tactics)
+5. **Verdict Engine** — combines all signals into Safe / Suspicious / Dangerous + a plain-English reason
+
+## Running it locally
+
+You need two terminals — one for the backend, one for the frontend.
+
+### Backend (FastAPI)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd backend
+python -m venv venv
+./venv/Scripts/activate   # on macOS/Linux: source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env       # optionally paste a Google Safe Browsing API key in here
+uvicorn app.main:app --reload --port 8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Runs at `http://localhost:8000`. Without a Safe Browsing API key, that one check is skipped gracefully — everything else still works.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Frontend (Next.js)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local   # points the UI at the backend
+npm run dev
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open `http://localhost:3000`.
