@@ -90,7 +90,8 @@ export default function Home() {
     setResult(null);
 
     try {
-      const endpoint = mode === "URL" ? "/api/check" : "/api/check-text";
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const endpoint = mode === "URL" ? `${apiBaseUrl}/check-url` : `${apiBaseUrl}/check-text`;
       const payload = mode === "URL" ? { url: trimmedInput } : { text: trimmedInput };
 
       const response = await fetch(endpoint, {
