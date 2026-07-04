@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -10,6 +10,7 @@ from .services.safe_browsing import check_url_safety
 from .services.text_scam import check_text_for_scam_patterns, extract_urls
 from .services.typosquat import check_typosquatting
 from .services.verdict import build_text_verdict, build_url_verdict
+from .services.whatsapp import send_whatsapp_reply
 
 app = FastAPI(title="Scam URL/Message Checker API")
 
@@ -112,13 +113,9 @@ def check_url(payload: UrlCheckRequest):
     return _analyze_url(payload.url)
 
 
-@app.post("/check-text", response_model=CheckResponse)
-def check_text(payload: TextCheckRequest):
-    if not payload.text or not payload.text.strip():
-        raise HTTPException(status_code=400, detail="Invalid text provided")
-
-    text_result = check_text_for_scam_patterns(payload.text)
-    urls_in_text = extract_urls(payload.text)[:MAX_URLS_PER_MESSAGE]
+def _analyze_text(text: str) -> CheckResponse:
+    text_result = check_text_for_scam_patterns(text)
+    urls_in_text = extract_urls(text)[:MAX_URLS_PER_MESSAGE]
     url_responses = [_analyze_url(url) for url in urls_in_text]
 
     result = build_text_verdict(
@@ -148,3 +145,27 @@ def check_text(payload: TextCheckRequest):
             keywordsFound=keywords_found,
         ),
     )
+
+
+@app.post("/check-text", response_model=CheckResponse)
+def check_text(payload: TextCheckRequest):
+    if not payload.text or not payload.text.strip():
+        raise HTTPException(status_code=400, detail="Invalid text provided")
+    return _analyze_text(payload.text)
+
+
+@app.post("/whatsapp-webhook")
+async def whatsapp_webhook(request: Request):
+    form = await request.form()
+    incoming_msg = form.get("Body")
+    sender = form.get("From")  # e.g. "whatsapp:+91XXXXXXXXXX"
+
+    if not incoming_msg or not incoming_msg.strip() or not sender:
+        return {"status": "ignored"}
+
+    result = _analyze_text(incoming_msg)
+
+    reply_text = f"Verdict: {result.verdict}\nReason: {result.reason}"
+    send_whatsapp_reply(sender, reply_text)
+
+    return {"status": "ok"}

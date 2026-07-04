@@ -3,3 +3,5 @@ uvicorn[standard]==0.32.1
 python-whois==0.9.5
 requests==2.32.3
 python-dotenv==1.0.1
+twilio 
+python-multipart==0.0.12
