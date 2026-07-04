@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -10,6 +10,7 @@ from .services.safe_browsing import check_url_safety
 from .services.text_scam import check_text_for_scam_patterns, extract_urls
 from .services.typosquat import check_typosquatting
 from .services.verdict import build_text_verdict, build_url_verdict
+from .services.store import get_result, save_result
 from .services.whatsapp import send_whatsapp_reply
 
 app = FastAPI(title="Scam URL/Message Checker API")
@@ -161,11 +162,25 @@ async def whatsapp_webhook(request: Request):
     sender = form.get("From")  # e.g. "whatsapp:+91XXXXXXXXXX"
 
     if not incoming_msg or not incoming_msg.strip() or not sender:
-        return {"status": "ignored"}
+        return Response(content="<Response></Response>", media_type="text/xml")
 
     result = _analyze_text(incoming_msg)
+    result_id = save_result(result.dict())
 
-    reply_text = f"Verdict: {result.verdict}\nReason: {result.reason}"
-    send_whatsapp_reply(sender, reply_text)
+    website_url = f"{settings.website_url}/result/{result_id}"
+    reply_text = f"Verdict: {result.verdict}\nView full details: {website_url}"
 
-    return {"status": "ok"}
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message>{reply_text}</Message>
+</Response>"""
+
+    return Response(content=twiml, media_type="text/xml")
+
+
+@app.get("/api/result/{result_id}")
+async def get_result_api(result_id: str):
+    result = get_result(result_id)
+    if not result:
+        return {"error": "Result not found"}
+    return result

@@ -23,4 +23,13 @@ class Settings:
             return f"whatsapp:{raw_num}"
         return raw_num
 
+    @property
+    def website_url(self) -> str:
+        url = os.getenv("WEBSITE_URL")
+        if url:
+            return url.strip().rstrip("/")
+        if self.cors_origins:
+            return self.cors_origins[0].strip().rstrip("/")
+        return "http://localhost:3000"
+
 settings = Settings()
